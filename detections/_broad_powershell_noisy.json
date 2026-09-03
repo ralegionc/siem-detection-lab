@@ -1,0 +1,12 @@
+{
+  "id": "ps-any-execution-BROAD",
+  "title": "Any PowerShell execution (intentionally broad)",
+  "level": "low",
+  "attack": ["T1059.001"],
+  "description": "TEACHING RULE: fires on every powershell.exe launch. Kept in the pack on purpose so the evaluation shows what a low-precision, high-noise rule does to an analyst's day. Compare its precision to ps-encoded-command.",
+  "logsource": {"source": "Sysmon"},
+  "detection": {
+    "selection": {"event_id": 1, "Image|endswith": "\\powershell.exe"},
+    "condition": "selection"
+  }
+}

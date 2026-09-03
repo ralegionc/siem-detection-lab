@@ -1,0 +1,13 @@
+{
+  "id": "auth-brute-force-success",
+  "title": "Brute force followed by success",
+  "level": "high",
+  "attack": ["T1110"],
+  "description": "Many failed logons for one account on one host inside a short window. Grouped so a burst is one alert, not one per failure.",
+  "logsource": {"source": "Security"},
+  "detection": {
+    "selection": {"event_id": 4625},
+    "condition": "selection"
+  },
+  "threshold": {"group_by": ["host", "User"], "count": 6, "window_seconds": 120}
+}

@@ -1,0 +1,15 @@
+{
+  "id": "persist-run-key",
+  "title": "Registry Run key persistence",
+  "level": "high",
+  "attack": ["T1547.001"],
+  "description": "Write to a CurrentVersion\\Run key, a common autostart persistence location.",
+  "logsource": {"source": "Sysmon"},
+  "detection": {
+    "selection": {
+      "event_id": 13,
+      "TargetObject|contains": "\\CurrentVersion\\Run"
+    },
+    "condition": "selection"
+  }
+}

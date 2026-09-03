@@ -1,0 +1,27 @@
+title: Rundll32 accessing LSASS
+id: sigma-rundll32-lsass
+status: experimental
+description: >
+  A rundll32 process opening lsass.exe with high access rights, consistent with
+  credential dumping. Written in native Sigma to demonstrate that this lab loads
+  real Sigma YAML rules directly, not just its own JSON format.
+author: SIEM Detection Lab
+logsource:
+  product: windows
+  service: sysmon
+  category: process_access
+detection:
+  selection:
+    EventID: 10
+    SourceImage|endswith: '\rundll32.exe'
+    TargetImage|endswith: '\lsass.exe'
+  highaccess:
+    GrantedAccess:
+      - '0x1410'
+      - '0x1010'
+      - '0x143a'
+  condition: selection and highaccess
+level: critical
+tags:
+  - attack.credential_access
+  - attack.t1003.001

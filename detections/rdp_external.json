@@ -1,0 +1,13 @@
+{
+  "id": "lateral-rdp-external",
+  "title": "RDP logon from external address",
+  "level": "high",
+  "attack": ["T1021.001"],
+  "description": "Interactive RDP logon (LogonType 10) sourced from a non-RFC1918 address.",
+  "logsource": {"source": "Security"},
+  "detection": {
+    "selection": {"event_id": 4624, "LogonType": 10},
+    "internal": {"IpAddress|startswith": ["10.", "192.168.", "172.16."]},
+    "condition": "selection and not internal"
+  }
+}
