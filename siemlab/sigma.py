@@ -24,7 +24,7 @@ import os
 import re
 from typing import Any, Dict, List
 
-from .rules import Rule
+from .rules import Rule, UnsupportedRuleError
 
 # Sigma field name -> this lab's event field name.
 FIELD_ALIASES = {
@@ -242,6 +242,15 @@ def sigma_to_rule_dict(doc: Dict[str, Any]) -> Dict[str, Any]:
     # needs flattening. We keep only dict selections and alias their fields.
     selections: Dict[str, Any] = {}
     for name, body in detection.items():
+        # Sigma "keywords" rules select on bare strings with no field, which a
+        # field-based matcher cannot express. Reject rather than silently
+        # converting to an empty (match-everything) selection.
+        if isinstance(body, list) and not any(isinstance(x, dict) for x in body):
+            raise UnsupportedRuleError(
+                f"selection '{name}' is a keyword list, not field/value pairs"
+            )
+        if body is None:
+            raise UnsupportedRuleError(f"selection '{name}' is empty")
         aliased = _alias_selection(body)
         if isinstance(aliased, list):
             # Merge list-of-maps into one map with OR'd list values where keys

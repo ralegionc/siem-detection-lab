@@ -1,0 +1,16 @@
+{
+  "id": "cred-lsass-access",
+  "title": "LSASS memory access",
+  "level": "critical",
+  "attack": ["T1003.001"],
+  "description": "A process opened lsass.exe with read access typical of credential dumping (Mimikatz-style GrantedAccess).",
+  "logsource": {"source": "Sysmon"},
+  "detection": {
+    "selection": {
+      "event_id": 10,
+      "TargetImage|endswith": "\\lsass.exe"
+    },
+    "access": {"GrantedAccess": ["0x1410", "0x1010", "0x1438", "0x143a", "0x1fffff"]},
+    "condition": "selection and access"
+  }
+}

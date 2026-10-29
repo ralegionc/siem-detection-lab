@@ -3,7 +3,7 @@
   "title": "LSASS memory access",
   "level": "critical",
   "attack": ["T1003.001"],
-  "description": "A process opened lsass.exe with read access typical of credential dumping (Mimikatz-style GrantedAccess).",
+  "description": "A process opened lsass.exe with read access typical of credential dumping (Mimikatz-style GrantedAccess). TUNED: backup agents, EDR and signed OS components legitimately do this, so accesses originating from trusted install directories are excluded. Provenance, not filename, is what separates them.",
   "logsource": {"source": "Sysmon"},
   "detection": {
     "selection": {
@@ -11,6 +11,9 @@
       "TargetImage|endswith": "\\lsass.exe"
     },
     "access": {"GrantedAccess": ["0x1410", "0x1010", "0x1438", "0x143a", "0x1fffff"]},
-    "condition": "selection and access"
+    "trusted_path": {
+      "SourceImage|startswith": ["C:\\Program Files", "C:\\Windows\\System32", "C:\\Windows\\SysWOW64"]
+    },
+    "condition": "selection and access and not trusted_path"
   }
 }

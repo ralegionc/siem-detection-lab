@@ -3,11 +3,11 @@
   "title": "RDP logon from external address",
   "level": "high",
   "attack": ["T1021.001"],
-  "description": "Interactive RDP logon (LogonType 10) sourced from a non-RFC1918 address.",
+  "description": "Interactive RDP logon (LogonType 10) sourced from outside the estate. TUNED: the office egress address is external but expected, so it joins the known-address allowlist. 'External' alone was never sufficient.",
   "logsource": {"source": "Security"},
   "detection": {
     "selection": {"event_id": 4624, "LogonType": 10},
-    "internal": {"IpAddress|startswith": ["10.", "192.168.", "172.16."]},
-    "condition": "selection and not internal"
+    "known_source": {"IpAddress|startswith": ["10.", "192.168.", "172.16.", "203.0.113.17"]},
+    "condition": "selection and not known_source"
   }
 }

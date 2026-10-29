@@ -3,10 +3,11 @@
   "title": "Local account created",
   "level": "medium",
   "attack": ["T1136.001"],
-  "description": "Security event 4720 — a new user account was created.",
+  "description": "Security event 4720 -- a new user account was created. TUNED: onboarding is routine in any org with turnover, so accounts created by the sanctioned provisioning service account are excluded. Account creation by anyone else is the anomaly.",
   "logsource": {"source": "Security"},
   "detection": {
     "selection": {"event_id": 4720},
-    "condition": "selection"
+    "provisioning": {"User": "svc_provision"},
+    "condition": "selection and not provisioning"
   }
 }

@@ -33,16 +33,39 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-_MODIFIERS = ("contains", "startswith", "endswith", "re")
+# Value modifiers this engine implements. Real Sigma defines more
+# (base64offset, cidr, windash, expand, ...); rules using those are rejected at
+# load time with a named reason rather than silently mismatching -- see
+# UnsupportedRuleError and the `sigma-audit` command.
+_MATCH_MODIFIERS = ("contains", "startswith", "endswith", "re", "cased")
+_QUANTIFIER_MODIFIERS = ("all",)
+_MODIFIERS = _MATCH_MODIFIERS + _QUANTIFIER_MODIFIERS
 
 
-def _match_field(event_val: Any, expected: Any, modifier: Optional[str]) -> bool:
-    """Match a single event value against one expected value/modifier."""
+class UnsupportedRuleError(ValueError):
+    """A rule uses a Sigma feature this engine does not implement."""
+
+
+def _match_field(event_val: Any, expected: Any, modifier: Optional[str],
+                 require_all: bool = False) -> bool:
+    """Match a single event value against one expected value/modifier.
+
+    A list of expected values is OR by default; with the Sigma ``|all``
+    modifier it becomes AND (every listed value must match).
+    """
     if isinstance(expected, list):
-        return any(_match_field(event_val, e, modifier) for e in expected)
+        combine = all if require_all else any
+        return combine(_match_field(event_val, e, modifier) for e in expected)
+
+    # Sigma uses a null value to mean "this field must be absent".
+    if expected is None:
+        return event_val is None
 
     if event_val is None:
         return False
+
+    if modifier == "cased":
+        return str(event_val) == str(expected)
 
     if modifier is None:
         # Exact match. Compare as strings when types differ so 4625 == "4625".
@@ -65,19 +88,35 @@ def _match_field(event_val: Any, expected: Any, modifier: Optional[str]) -> bool
     raise ValueError(f"unknown modifier: {modifier}")
 
 
-def _split_key(key: str) -> tuple[str, Optional[str]]:
-    if "|" in key:
-        base, mod = key.split("|", 1)
-        if mod not in _MODIFIERS:
-            raise ValueError(f"unknown field modifier '{mod}' in key '{key}'")
-        return base, mod
-    return key, None
+def _split_key(key: str) -> tuple[str, Optional[str], bool]:
+    """Split ``Field|mod|mod`` into (field, match_modifier, require_all).
+
+    Sigma allows chained modifiers, e.g. ``CommandLine|contains|all``.
+    """
+    if "|" not in key:
+        return key, None, False
+    base, *mods = key.split("|")
+    match_mod: Optional[str] = None
+    require_all = False
+    for mod in mods:
+        low = mod.lower()
+        if low in _QUANTIFIER_MODIFIERS:
+            require_all = True
+        elif low in _MATCH_MODIFIERS:
+            if match_mod is not None:
+                raise UnsupportedRuleError(
+                    f"multiple match modifiers ('{match_mod}', '{low}') in key '{key}'"
+                )
+            match_mod = low
+        else:
+            raise UnsupportedRuleError(f"unsupported field modifier '{mod}' in key '{key}'")
+    return base, match_mod, require_all
 
 
 def _match_selection(event: Dict[str, Any], selection: Dict[str, Any]) -> bool:
     for key, expected in selection.items():
-        base, mod = _split_key(key)
-        if not _match_field(event.get(base), expected, mod):
+        base, mod, require_all = _split_key(key)
+        if not _match_field(event.get(base), expected, mod, require_all):
             return False
     return True
 
@@ -93,14 +132,24 @@ def _resolve_wildcard(name: str, selection_names: List[str]) -> List[str]:
     return [s for s in selection_names if s == name]
 
 
-def _eval_condition(
-    condition: str,
-    selection_results: Dict[str, bool],
-) -> bool:
-    """Evaluate a Sigma-lite condition string against per-selection booleans."""
-    names = list(selection_results.keys())
+# Expanding and tokenizing a condition depends only on the condition string and
+# the set of selection names -- never on the event. Doing it per event made rule
+# evaluation quadratic in the worst case; caching it is what makes auditing
+# thousands of real Sigma rules against a full event stream tractable.
+_TOKEN_CACHE: Dict[tuple, List[str]] = {}
 
-    # Expand the aggregate helpers into plain boolean expressions first.
+
+def _condition_tokens(condition: str, names: List[str]) -> List[str]:
+    key = (condition, tuple(names))
+    cached = _TOKEN_CACHE.get(key)
+    if cached is None:
+        cached = _tokenize_condition(condition, names)
+        _TOKEN_CACHE[key] = cached
+    return cached
+
+
+def _tokenize_condition(condition: str, names: List[str]) -> List[str]:
+    """Expand aggregate helpers, then tokenize. Event-independent."""
     cond = condition.strip()
     cond = re.sub(r"\ball of them\b", "(" + " and ".join(names) + ")" if names else "False", cond, flags=re.I)
     cond = re.sub(r"\b1 of them\b", "(" + " or ".join(names) + ")" if names else "False", cond, flags=re.I)
@@ -114,8 +163,12 @@ def _eval_condition(
         return "(" + joiner.join(matched) + ")"
 
     cond = re.sub(r"\b(1|all) of ([A-Za-z0-9_]*\*)", expand_x_of, cond, flags=re.I)
+    return _TOKEN_RE.findall(cond)
 
-    tokens = _TOKEN_RE.findall(cond)
+
+def _eval_condition(condition: str, selection_results: Dict[str, bool]) -> bool:
+    """Evaluate a Sigma-lite condition string against per-selection booleans."""
+    tokens = _condition_tokens(condition, list(selection_results.keys()))
     pos = 0
 
     def peek() -> Optional[str]:
@@ -225,6 +278,21 @@ class Rule:
                 count=int(t["count"]),
                 window_seconds=float(t["window_seconds"]),
             )
+
+        # Validate eagerly: a rule that uses an unimplemented Sigma feature must
+        # fail at load with a named reason, not silently mismatch at run time or
+        # explode halfway through an event stream.
+        for name, sel in selections.items():
+            # An empty selection matches every event vacuously, which would turn
+            # the rule into a firehose that appears to detect everything. Always
+            # a conversion artifact, never intent.
+            if not sel:
+                raise UnsupportedRuleError(
+                    f"selection '{name}' has no field/value pairs "
+                    f"(keyword-list or unsupported selection form)"
+                )
+            for key in sel:
+                _split_key(key)  # raises UnsupportedRuleError
 
         return cls(
             id=data["id"],

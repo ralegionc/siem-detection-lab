@@ -5,6 +5,10 @@ description: >
   A rundll32 process opening lsass.exe with high access rights, consistent with
   credential dumping. Written in native Sigma to demonstrate that this lab loads
   real Sigma YAML rules directly, not just its own JSON format.
+  TUNED FOR THIS ENVIRONMENT: the upstream rule matches rundll32 by filename
+  suffix alone, which fires on the signed copy in System32 that legitimately
+  touches LSASS. The added filter keys on where the binary lives, not what it is
+  called -- the same reason filename-only matching is trivially evaded.
 author: SIEM Detection Lab
 logsource:
   product: windows
@@ -20,7 +24,11 @@ detection:
       - '0x1410'
       - '0x1010'
       - '0x143a'
-  condition: selection and highaccess
+  trusted_path:
+    SourceImage|startswith:
+      - 'C:\Windows\System32'
+      - 'C:\Windows\SysWOW64'
+  condition: selection and highaccess and not trusted_path
 level: critical
 tags:
   - attack.credential_access

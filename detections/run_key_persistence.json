@@ -3,13 +3,14 @@
   "title": "Registry Run key persistence",
   "level": "high",
   "attack": ["T1547.001"],
-  "description": "Write to a CurrentVersion\\Run key, a common autostart persistence location.",
+  "description": "Write to a CurrentVersion\\Run key, a common autostart persistence location. TUNED: legitimate software registers autostart the same way, so entries pointing into Program Files are excluded. What matters is where the autostart target lives, not that a Run key was touched.",
   "logsource": {"source": "Sysmon"},
   "detection": {
     "selection": {
       "event_id": 13,
       "TargetObject|contains": "\\CurrentVersion\\Run"
     },
-    "condition": "selection"
+    "trusted_target": {"Details|startswith": ["C:\\Program Files", "C:\\Windows\\System32"]},
+    "condition": "selection and not trusted_target"
   }
 }

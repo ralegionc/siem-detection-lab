@@ -3,7 +3,7 @@
   "title": "PowerShell encoded command",
   "level": "high",
   "attack": ["T1059.001"],
-  "description": "powershell.exe invoked with -EncodedCommand / -enc, the classic obfuscated-payload launcher.",
+  "description": "powershell.exe invoked with -EncodedCommand / -enc, the classic obfuscated-payload launcher. TUNED: endpoint-management agents ship base64 payloads legitimately, so encoded commands spawned by tooling under Program Files are excluded. The parent process is the signal here, not the -enc flag.",
   "logsource": {"source": "Sysmon"},
   "detection": {
     "selection": {
@@ -11,6 +11,7 @@
       "Image|endswith": "\\powershell.exe"
     },
     "enc": {"CommandLine|re": "\\s-e(nc(odedcommand)?)?\\s+[A-Za-z0-9+/]{40,}"},
-    "condition": "selection and enc"
+    "trusted_parent": {"ParentImage|startswith": "C:\\Program Files"},
+    "condition": "selection and enc and not trusted_parent"
   }
 }

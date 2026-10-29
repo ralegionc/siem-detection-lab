@@ -1,5 +1,5 @@
 # SIEM Detection Lab has no *required* third-party dependencies.
-# It runs on the Python 3.8+ standard library alone.
+# It runs on the Python 3.9+ standard library alone.
 #
 # Optional: PyYAML gives faster, fully spec-compliant parsing of Sigma YAML
 # rules. Without it, a bundled minimal YAML parser handles the Sigma subset.

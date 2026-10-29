@@ -1,0 +1,12 @@
+{
+  "id": "persist-new-account",
+  "title": "Local account created",
+  "level": "medium",
+  "attack": ["T1136.001"],
+  "description": "Security event 4720 — a new user account was created.",
+  "logsource": {"source": "Security"},
+  "detection": {
+    "selection": {"event_id": 4720},
+    "condition": "selection"
+  }
+}

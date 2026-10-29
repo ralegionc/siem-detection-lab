@@ -5,3 +5,4 @@ data/
 .venv/
 .env
 .DS_Store
+vendor/

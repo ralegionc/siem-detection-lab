@@ -83,8 +83,13 @@ def run_sweep(
 
 
 def _sparkline(values: List[float]) -> str:
-    """Render a 0..1 series as a unicode-free ASCII bar strip."""
-    ramp = " .:-=+*#%@"  # 10 levels, low -> high
+    """Render a 0..1 series as a unicode-free ASCII bar strip.
+
+    A blank means the rule raised no alerts at all at that noise level, which is
+    a different statement from 0% precision -- so the ramp deliberately starts
+    at '.' rather than a space, keeping the two distinguishable.
+    """
+    ramp = ".:-=+*#%@"  # 9 levels, low -> high; never a space
     out = []
     for v in values:
         if v != v:  # NaN: rule never fired at this noise level
@@ -101,7 +106,7 @@ def format_sweep(result: SweepResult) -> str:
     lines.append("  NOISE-INJECTION SWEEP  (precision vs. benign event rate)")
     lines.append("=" * 74)
     header_rates = "  ".join(f"{r:g}" for r in result.rates)
-    lines.append(f"  benign events/min sweept: {header_rates}")
+    lines.append(f"  benign events/min swept: {header_rates}")
     lines.append("")
 
     # Volume + overall precision at each rate.
@@ -116,7 +121,8 @@ def format_sweep(result: SweepResult) -> str:
     lines.append("")
 
     # Per-rule precision decay chart.
-    lines.append("  PER-RULE PRECISION as noise climbs  (low ' '  ->  high '@')")
+    lines.append("  PER-RULE PRECISION as noise climbs  (low '.'  ->  high '@';"
+                 " blank = no alerts)")
     lines.append("  " + "-" * 68)
     lines.append(f"  {'rule':<38}{'chart':<12}{'start':>7}{'end':>7}")
     lines.append("  " + "-" * 68)
@@ -132,7 +138,7 @@ def format_sweep(result: SweepResult) -> str:
         lines.append(f"  {title:<38}{strip:<12}{s:>7}{e:>7}")
     lines.append("  " + "-" * 68)
     lines.append("  Read left->right as the environment gets noisier. A rule whose")
-    lines.append("  strip fades from '@' toward ' ' is losing precision to false")
+    lines.append("  strip fades from '@' toward '.' is losing precision to false")
     lines.append("  positives and needs tightening.")
     lines.append("=" * 74)
     return "\n".join(lines)

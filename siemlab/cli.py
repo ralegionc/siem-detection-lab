@@ -136,6 +136,31 @@ def cmd_sweep(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sigma_audit(args: argparse.Namespace) -> int:
+    from .audit import format_audit, load_sigma_tree, run_audit
+
+    if not os.path.isdir(args.sigma_dir):
+        print(f"error: {args.sigma_dir} not found.\n"
+              f"Fetch the corpus first:  python scripts/fetch_sigma.py",
+              file=sys.stderr)
+        return 2
+
+    print(f"loading Sigma rules from {args.sigma_dir} ...", file=sys.stderr)
+    result = load_sigma_tree(
+        args.sigma_dir, max_rules=args.max_rules,
+        progress=lambda i, n: print(f"  {i}/{n}", file=sys.stderr),
+    )
+    print(f"loaded {len(result.loaded)} rules; running against telemetry ...",
+          file=sys.stderr)
+    events = generate(
+        seed=args.seed, duration_seconds=args.duration,
+        baseline_rate_per_min=args.rate, n_incidents=args.incidents,
+    )
+    run_audit(result, events)
+    print(format_audit(result))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="siemlab", description="SIEM detection-engineering lab")
     p.add_argument("--version", action="version", version=f"siemlab {__version__}")
@@ -189,6 +214,19 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--rate-step", type=float, default=10.0)
     s.add_argument("--csv", default=None, help="also write sweep results to this CSV")
     s.set_defaults(func=cmd_sweep)
+
+    a = sub.add_parser(
+        "sigma-audit",
+        help="run the real SigmaHQ corpus against this telemetry (realism check)")
+    a.add_argument("--sigma-dir", default=os.path.join("vendor", "sigma", "rules", "windows"),
+                   help="path to a SigmaHQ rules tree (see scripts/fetch_sigma.py)")
+    a.add_argument("--max-rules", type=int, default=None,
+                   help="cap the number of rules loaded (for a quick pass)")
+    a.add_argument("--seed", type=int, default=1337)
+    a.add_argument("--duration", type=int, default=6 * 3600)
+    a.add_argument("--rate", type=float, default=12.0)
+    a.add_argument("--incidents", type=int, default=8)
+    a.set_defaults(func=cmd_sigma_audit)
 
     return p
 

@@ -1,0 +1,16 @@
+{
+  "id": "persist-schtasks-create",
+  "title": "Scheduled task creation via schtasks",
+  "level": "medium",
+  "attack": ["T1053.005"],
+  "description": "schtasks.exe /create — persistence or lateral execution. Query-only usage is excluded to cut benign noise.",
+  "logsource": {"source": "Sysmon"},
+  "detection": {
+    "selection": {
+      "event_id": 1,
+      "Image|endswith": "\\schtasks.exe",
+      "CommandLine|contains": "/create"
+    },
+    "condition": "selection"
+  }
+}

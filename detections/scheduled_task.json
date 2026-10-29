@@ -3,7 +3,7 @@
   "title": "Scheduled task creation via schtasks",
   "level": "medium",
   "attack": ["T1053.005"],
-  "description": "schtasks.exe /create — persistence or lateral execution. Query-only usage is excluded to cut benign noise.",
+  "description": "schtasks.exe /create -- persistence or lateral execution. TUNED: installers and patch tooling create tasks constantly, so tasks created by msiexec are excluded. Query-only usage never matched to begin with.",
   "logsource": {"source": "Sysmon"},
   "detection": {
     "selection": {
@@ -11,6 +11,7 @@
       "Image|endswith": "\\schtasks.exe",
       "CommandLine|contains": "/create"
     },
-    "condition": "selection"
+    "installer": {"ParentImage|endswith": ["\\msiexec.exe", "\\setup.exe"]},
+    "condition": "selection and not installer"
   }
 }

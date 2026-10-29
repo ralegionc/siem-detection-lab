@@ -3,11 +3,12 @@
   "title": "Brute force followed by success",
   "level": "high",
   "attack": ["T1110"],
-  "description": "Many failed logons for one account on one host inside a short window. Grouped so a burst is one alert, not one per failure.",
+  "description": "Many failed logons for one account on one host inside a short window, grouped so a burst is one alert rather than one per failure. TUNED: a service account with a stale password retries in exactly this shape from inside the network, so internal sources are excluded and only externally-sourced bursts count toward the threshold.",
   "logsource": {"source": "Security"},
   "detection": {
     "selection": {"event_id": 4625},
-    "condition": "selection"
+    "internal": {"IpAddress|startswith": ["10.", "192.168.", "172.16."]},
+    "condition": "selection and not internal"
   },
   "threshold": {"group_by": ["host", "User"], "count": 6, "window_seconds": 120}
 }
